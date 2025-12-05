@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Drawing App</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <h1>Drawing App</h1>
+    <div class="container">
+        <div class="toolbar">
+            <div class="tool-group">
+                <div class="tool-title">Colors</div>
+                <div class="color-palette">
+                    <div class="color-swatch active" style="background-color: #000000;" data-color="#000000"></div>
+                    <div class="color-swatch" style="background-color: #ff0000;" data-color="#ff0000"></div>
+                    <div class="color-swatch" style="background-color: #00ff00;" data-color="#00ff00"></div>
+                    <div class="color-swatch" style="background-color: #0000ff;" data-color="#0000ff"></div>
+                    <div class="color-swatch" style="background-color: #ffff00;" data-color="#ffff00"></div>
+                    <input type="color" id="colorPicker" class="color-picker-input">
+                </div>
+            </div>
+            <div class="tool-group">
+                <div class="tool-title">Brush Size</div>
+                <div class="brush-size-selector">
+                    <input type="range" id="brushSize" min="1" max="20" value="5">
+                    <span id="brushSizeValue">5</span>
+                </div>
+            </div>
+            <div class="tool-group">
+                <div class="tool-title">Actions</div>
+                <div class="action-buttons">
+                    <button id="newBtn" title="New Canvas"><i class="fas fa-file"></i></button>
+                    <button id="saveBtn" title="Save Drawing"><i class="fas fa-save"></i></button>
+                    <button id="deleteAllBtn" title="Delete Drawing"><i class="fas fa-trash"></i></button>
+                </div>
+            </div>
+        </div>
+         
+            <canvas id="canvas" width="800" height="600"></canvas>
+    </div>
+        <div class="drawing-area">
+            <input type="text" id="nameInput" name="name" placeholder="Введите название">
+            <input type="text" id="priceInput" name="price" placeholder="Введите цену">
+        </div>
+    <div class="gallery-container">
+        <h2>Gallery</h2>
+        <div id="gallery"></div>
+    </div>
+
+    <script src="js/app.js"></script>
+</body>
+</html>

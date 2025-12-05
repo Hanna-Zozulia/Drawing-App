@@ -1,0 +1,222 @@
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500&display=swap');
+
+body {
+    font-family: 'Roboto', sans-serif;
+    background-color: #d8d6d6;
+    margin: 0;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.container {
+    display: flex;
+    gap: 20px;
+}
+
+.toolbar {
+    width: 200px;
+    background-color: #fff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.tool-group {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.tool-title {
+    font-weight: 500;
+    color: #333;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 5px;
+}
+
+.color-palette {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+}
+
+.color-swatch {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: transform 0.2s;
+}
+
+.color-swatch.active {
+    border-color: #007bff;
+    transform: scale(1.1);
+}
+
+.color-picker-input {
+    width: 100%;
+    height: 30px;
+    border: none;
+    background: none;
+    cursor: pointer;
+}
+
+.brush-size-selector {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.brush-size-selector input[type="range"] {
+    width: 100%;
+}
+
+.action-buttons {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+.action-buttons button {
+    background-color: #007bff;
+    color: white;
+    border: none;
+    padding: 10px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: background-color 0.2s;
+}
+
+input {
+    width: 250px; 
+    padding: 5px;
+    margin: 5px;
+}
+.action-buttons button:hover {
+    background-color: #0056b3;
+}
+
+.drawing-area {
+    display: flex;
+    flex-direction: column; 
+    align-items: center; 
+    margin-top: 20px;
+}
+
+canvas {
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.gallery-container {
+    width: 100%;
+    max-width: 1024px;
+    margin-top: 20px;
+}
+
+#gallery {
+    margin-top: 20px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 20px;
+}
+
+.gallery-item {
+    position: relative;
+    overflow: hidden;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    background-color: #fff;
+}
+
+.gallery-item img {
+    width: 100%;
+    height: auto;
+    display: block;
+}
+
+.gallery-title {
+    text-align: center;   /* по центру */
+    margin-top: 15px;
+    font-weight: 500;
+    color: #333;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.gallery-price {
+    text-align: center;
+    font-weight: 500;
+    color: #02921f;
+    margin-top: 5px;
+    font-size: 14px;
+}
+
+.delete-btn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background-color: rgba(0, 0, 0, 0.5);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 30px;
+    height: 30px;
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.deleteAllBtn {
+    background-color: red;
+}
+
+.gallery-item:hover .delete-btn {
+    opacity: 1;
+}
+
+@media (max-width: 1024px) {
+    .container {
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .toolbar {
+        width: 100%;
+        max-width: 800px;
+        flex-direction: row;
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+
+    .tool-group {
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .color-palette {
+        grid-template-columns: repeat(5, 1fr);
+    }
+}
+
+@media (max-width: 768px) {
+    canvas {
+        width: 100%;
+        height: auto;
+    }
+
+    #gallery {
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    }
+}
