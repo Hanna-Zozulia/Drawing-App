@@ -1,6 +1,3 @@
-
-
-
 // Polyfill for setImmediate in Jest/node (Express/serve-static/router use it)
 if (typeof global.setImmediate === 'undefined') {
     const shim = (fn: (...args: any[]) => void, ...args: any[]) => setTimeout(fn, 0, ...args);

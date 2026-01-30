@@ -3,11 +3,7 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-<<<<<<< HEAD
-    "test": "echo \"Error: no test specified\" && exit 1",
-=======
     "test": "jest",
->>>>>>> fb2a244 (Added tests)
     "build": "tsc",
     "start": "node public/js/server.js",
     "dev": "ts-node-dev --respawn --transpile-only src/app.ts"
@@ -21,8 +17,6 @@
     "express": "^5.1.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3"
-<<<<<<< HEAD
-=======
   },
   "devDependencies": {
     "@types/jest": "^30.0.0",
@@ -32,6 +26,5 @@
     "memfs": "^4.56.10",
     "supertest": "^7.2.2",
     "ts-jest": "^29.4.6"
->>>>>>> fb2a244 (Added tests)
   }
 }
