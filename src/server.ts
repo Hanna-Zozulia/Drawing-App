@@ -136,6 +136,17 @@ app.delete('/images', (req: Request, res: Response) => {
 });
 
 
+<<<<<<< HEAD
 app.listen(port, () => {
     console.log(`Server is running at http://localhost:${port}`);
 });
+=======
+
+if (process.env.NODE_ENV !== 'test') {
+    app.listen(port, () => {
+        console.log(`Server is running at http://localhost:${port}`);
+    });
+}
+
+export default app;
+>>>>>>> fb2a244 (Added tests)
