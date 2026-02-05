@@ -27,8 +27,17 @@ app.post('/save', (req: Request, res: Response) => {
         : {};
 
     // --- UPDATE EXISTING FILE ---
+    // --- UPDATE EXISTING FILE ---
     if (filename) {
+        if (typeof filename !== 'string') {
+            return res.status(400).json({ message: 'Invalid filename type' });
+        }
+
+        // Security check to prevent path traversal
         const imagePath = path.join(imgDir, filename);
+        if (!path.resolve(imagePath).startsWith(path.resolve(imgDir)) || filename.includes('..')) {
+            return res.status(403).json({ message: 'Forbidden: Invalid filename provided.' });
+        }
 
         fs.writeFile(imagePath, base64Data, 'base64', (err) => {
             if (err) {
@@ -36,7 +45,9 @@ app.post('/save', (req: Request, res: Response) => {
                 return res.status(500).json({ message: 'Failed to update image' });
             }
 
-            const cleanPrice = price.replace(/\s?€/, '');
+            const cleanPrice = typeof price === 'string'
+                ? price.replace(/\s?€/, '')
+                : '';
 
             meta[filename] = { name, price: cleanPrice };
             fs.writeFileSync(metaFile, JSON.stringify(meta, null, 2), 'utf8');
@@ -45,7 +56,7 @@ app.post('/save', (req: Request, res: Response) => {
                 message: 'Image updated successfully',
                 filename,
                 title: name,
-                price: cleanPrice + " €"
+                price: cleanPrice + ' €'
             });
         });
         return;
@@ -61,14 +72,15 @@ app.post('/save', (req: Request, res: Response) => {
             return res.status(500).json({ message: 'Failed to save image' });
         }
 
-        meta[newName] = { name, price };
+        const cleanPrice = price.replace(/\s?€/, '');
+        meta[newName] = { name, price: cleanPrice };
         fs.writeFileSync(metaFile, JSON.stringify(meta, null, 2), 'utf8');
 
         return res.json({
             message: 'Image saved successfully',
             filename: newName,
             title: name,
-            price: price + " €"
+            price: cleanPrice + " €"
         });
     });
 });
@@ -94,26 +106,37 @@ app.get('/images', (req: Request, res: Response) => {
 
 
 // === DELETE ONE IMAGE ===
-app.delete('/images/:filename', (req: Request, res: Response) => {
+app.delete(
+  '/images/:filename',
+  (req: Request<{ filename: string }>, res: Response) => {
     const { filename } = req.params;
+
     const imagePath = path.join(imgDir, filename);
+    if (
+      !path.resolve(imagePath).startsWith(path.resolve(imgDir)) ||
+      filename.includes('..')
+    ) {
+      return res.status(403).json({ message: 'Forbidden: Invalid filename provided.' });
+    }
+
     const metaFile = path.join(imgDir, 'meta.json');
 
     try {
-        fs.unlinkSync(imagePath);
+      fs.unlinkSync(imagePath);
 
-        if (fs.existsSync(metaFile)) {
-            const meta = JSON.parse(fs.readFileSync(metaFile, 'utf8'));
-            delete meta[filename];
-            fs.writeFileSync(metaFile, JSON.stringify(meta, null, 2), 'utf8');
-        }
+      if (fs.existsSync(metaFile)) {
+        const meta = JSON.parse(fs.readFileSync(metaFile, 'utf8'));
+        delete meta[filename];
+        fs.writeFileSync(metaFile, JSON.stringify(meta, null, 2), 'utf8');
+      }
 
-        res.json({ message: 'Image deleted successfully' });
+      res.json({ message: 'Image deleted successfully' });
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: 'Failed to delete image' });
+      console.error(err);
+      res.status(500).json({ message: 'Failed to delete image' });
     }
-});
+  }
+);
 
 
 // === DELETE ALL IMAGES ===
@@ -133,10 +156,6 @@ app.delete('/images', (req: Request, res: Response) => {
         console.error(err);
         res.status(500).json({ message: 'Failed to delete images' });
     }
-});
-
-app.listen(port, () => {
-    console.log(`Server is running at http://localhost:${port}`);
 });
 
 if (process.env.NODE_ENV !== 'test') {

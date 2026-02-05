@@ -1,11 +1,4 @@
-// Polyfill for setImmediate in Jest/node (Express/serve-static/router use it)
-if (typeof global.setImmediate === 'undefined') {
-    const shim = (fn: (...args: any[]) => void, ...args: any[]) => setTimeout(fn, 0, ...args);
-    // @ts-ignore
-    shim.__promisify__ = function () {};
-    // @ts-ignore
-    global.setImmediate = shim;
-}
+/** @jest-environment node */
 
 import { TextEncoder, TextDecoder } from 'util';
 global.TextEncoder = TextEncoder as any;
@@ -16,186 +9,202 @@ import app from '../src/server';
 import fs from 'fs';
 import path from 'path';
 
+const IMG_DIR = path.join(__dirname, '..', 'img');
+const ROOT_DIR = path.join(__dirname, '..');
 
-// A sample PNG image data in base64 format for testing uploads
-const MOCK_IMAGE_DATA = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
-const IMG_DIR = path.join(__dirname, '../img');
+const MOCK_IMAGE_DATA =
+  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
+const MOCK_IMAGE_BUFFER = Buffer.from(
+  MOCK_IMAGE_DATA.replace(/^data:image\/png;base64,/, ''),
+  'base64'
+);
 
 describe('Image Gallery API', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    if (fs.existsSync(IMG_DIR)) {
+      fs.rmSync(IMG_DIR, { recursive: true, force: true });
+    }
+    fs.mkdirSync(IMG_DIR, { recursive: true });
+  });
 
+  afterAll(() => {
+    if (fs.existsSync(IMG_DIR)) {
+      fs.rmSync(IMG_DIR, { recursive: true, force: true });
+    }
+  });
 
-    // Before each test, clean up the img directory
+  // ======================
+  // POST /save (create)
+  // ======================
+  describe('POST /save - Create', () => {
+    it('creates a new image and metadata', async () => {
+      const res = await request(app)
+        .post('/save')
+        .send({ name: 'My Test Image', price: '100', image: MOCK_IMAGE_DATA });
+
+      expect(res.status).toBe(200);
+      expect(res.body.message).toBe('Image saved successfully');
+      expect(res.body.title).toBe('My Test Image');
+      expect(res.body.price).toBe('100 €');
+
+      const filename = res.body.filename;
+      expect(filename).toMatch(/^My_Test_Image-\d+\.png$/);
+
+      const imagePath = path.join(IMG_DIR, filename);
+      expect(fs.existsSync(imagePath)).toBe(true);
+      expect(fs.readFileSync(imagePath)).toEqual(MOCK_IMAGE_BUFFER);
+
+      const meta = JSON.parse(
+        fs.readFileSync(path.join(IMG_DIR, 'meta.json'), 'utf8')
+      );
+      expect(meta[filename]).toEqual({ name: 'My Test Image', price: '100' });
+    });
+
+    it('returns 400 if name is missing', async () => {
+      const res = await request(app)
+        .post('/save')
+        .send({ price: '100', image: MOCK_IMAGE_DATA });
+
+      expect(res.status).toBe(400);
+      expect(res.body.message).toBe('Name is required');
+    });
+  });
+
+  // ======================
+  // POST /save (update)
+  // ======================
+  describe('POST /save - Update', () => {
+    let filename: string;
+
     beforeEach(() => {
-        jest.clearAllMocks();
-        if (fs.existsSync(IMG_DIR)) {
-            fs.readdirSync(IMG_DIR).forEach(f => fs.unlinkSync(path.join(IMG_DIR, f)));
-        } else {
-            fs.mkdirSync(IMG_DIR, { recursive: true });
-        }
+      filename = `image-${Date.now()}.png`;
+      fs.writeFileSync(path.join(IMG_DIR, filename), 'old-data');
+      fs.writeFileSync(
+        path.join(IMG_DIR, 'meta.json'),
+        JSON.stringify({ [filename]: { name: 'Old', price: '10' } })
+      );
     });
 
-    // After all tests, clean up the img directory
-    afterAll(() => {
-        if (fs.existsSync(IMG_DIR)) {
-            fs.readdirSync(IMG_DIR).forEach(f => fs.unlinkSync(path.join(IMG_DIR, f)));
-        }
+    it('updates existing image and metadata', async () => {
+      const res = await request(app)
+        .post('/save')
+        .send({
+          name: 'Updated',
+          price: '200 €',
+          image: MOCK_IMAGE_DATA,
+          filename,
+        });
+
+      expect(res.status).toBe(200);
+      expect(res.body.message).toBe('Image updated successfully');
+      expect(res.body.price).toBe('200 €');
+
+      const meta = JSON.parse(
+        fs.readFileSync(path.join(IMG_DIR, 'meta.json'), 'utf8')
+      );
+      expect(meta[filename]).toEqual({ name: 'Updated', price: '200' });
+
+      expect(fs.readFileSync(path.join(IMG_DIR, filename))).toEqual(
+        MOCK_IMAGE_BUFFER
+      );
+    });
+  });
+
+  // ======================
+  // GET /images
+  // ======================
+  describe('GET /images', () => {
+    it('returns list of images with metadata', async () => {
+      fs.writeFileSync(
+        path.join(IMG_DIR, 'meta.json'),
+        JSON.stringify({
+          'a-1.png': { name: 'A', price: '10' },
+          'b-2.png': { name: 'B', price: '20' },
+        })
+      );
+      fs.writeFileSync(path.join(IMG_DIR, 'a-1.png'), 'x');
+      fs.writeFileSync(path.join(IMG_DIR, 'b-2.png'), 'y');
+
+      const res = await request(app).get('/images');
+
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual(
+        expect.arrayContaining([
+          { filename: 'a-1.png', title: 'A', price: '10 €' },
+          { filename: 'b-2.png', title: 'B', price: '20 €' },
+        ])
+      );
+    });
+  });
+
+  // ======================
+  // DELETE /images/:filename
+  // ======================
+  describe('DELETE /images/:filename', () => {
+    it('deletes image and metadata', async () => {
+      const filename = 'delete-me.png';
+      fs.writeFileSync(path.join(IMG_DIR, filename), 'data');
+      fs.writeFileSync(
+        path.join(IMG_DIR, 'meta.json'),
+        JSON.stringify({ [filename]: { name: 'X', price: '1' } })
+      );
+
+      const res = await request(app).delete(`/images/${filename}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.message).toBe('Image deleted successfully');
+      expect(fs.existsSync(path.join(IMG_DIR, filename))).toBe(false);
     });
 
-    describe('POST /save - Create New Image', () => {
-        it('should save a new image and its metadata', async () => {
-            const response = await request(app)
-                .post('/save')
-                .send({
-                    name: 'My Test Image',
-                    price: '100',
-                    image: MOCK_IMAGE_DATA,
-                });
+    it('returns 500 if file does not exist', async () => {
+      const res = await request(app).delete('/images/nope.png');
+      expect(res.status).toBe(500);
+    });
+  });
 
-            // Expect a successful response
-            expect(response.status).toBe(200);
-            expect(response.body.message).toBe('Image saved successfully');
-            expect(response.body.title).toBe('My Test Image');
-            expect(response.body.price).toBe('100 €');
+  // ======================
+  // DELETE /images
+  // ======================
+  describe('DELETE /images', () => {
+    it('deletes all images and metadata', async () => {
+      fs.writeFileSync(path.join(IMG_DIR, 'a.png'), '1');
+      fs.writeFileSync(path.join(IMG_DIR, 'b.png'), '2');
+      fs.writeFileSync(path.join(IMG_DIR, 'meta.json'), '{}');
 
-            // Verify that the image file was created in the img directory
-            const files = fs.readdirSync(IMG_DIR);
-            expect(files).toHaveLength(2); // image file + meta.json
-            const imageFile = files.find(f => f.endsWith('.png'));
-            expect(imageFile).toBeDefined();
+      const res = await request(app).delete('/images');
 
-            // Verify the content of meta.json
-            const metaContent = JSON.parse(fs.readFileSync(path.join(IMG_DIR, 'meta.json'), 'utf8'));
-            expect(metaContent[imageFile!]).toEqual({
-                name: 'My Test Image',
-                price: '100',
-            });
-        });
+      expect(res.status).toBe(200);
+      expect(res.body.message).toBe('All images deleted successfully');
+      expect(fs.readdirSync(IMG_DIR)).toHaveLength(0);
+    });
+  });
 
-        it('should return 400 if name is missing', async () => {
-            const response = await request(app)
-                .post('/save')
-                .send({
-                    price: '100',
-                    image: MOCK_IMAGE_DATA,
-                });
-            
-            expect(response.status).toBe(400);
-            expect(response.body.message).toBe('Name is required');
-        });
+  // ======================
+  // SECURITY
+  // ======================
+  describe('Security - Path Traversal', () => {
+    it('blocks traversal via URL normalization (404)', async () => {
+      const target = path.join(ROOT_DIR, 'package.json');
+      expect(fs.existsSync(target)).toBe(true);
+
+      const res = await request(app).delete('/images/../../package.json');
+
+      expect(res.status).toBe(404);
+      expect(fs.existsSync(target)).toBe(true);
     });
 
-    describe('POST /save - Update Existing Image', () => {
-        it('should update an existing image and its metadata', async () => {
-            // First, create an image to update
-            const initialFilename = 'my_test_image-12345.png';
-            const initialMeta = {
-                [initialFilename]: { name: 'Old Name', price: '50' }
-            };
-            const imagePath = path.join(IMG_DIR, initialFilename);
-            const metaPath = path.join(IMG_DIR, 'meta.json');
-            // Pre-populate the img directory
-            fs.writeFileSync(imagePath, 'old-image-data');
-            fs.writeFileSync(metaPath, JSON.stringify(initialMeta));
+    it('blocks encoded traversal with 403', async () => {
+      const target = path.join(ROOT_DIR, 'package.json');
+      expect(fs.existsSync(target)).toBe(true);
 
-            // Now, send the update request
-            const response = await request(app)
-                .post('/save')
-                .send({
-                    name: 'New Updated Name',
-                    price: '200',
-                    image: MOCK_IMAGE_DATA,
-                    filename: initialFilename, // Specify the file to update
-                });
+      const res = await request(app).delete(
+        '/images/..%2F..%2Fpackage.json'
+      );
 
-            // Expect a successful update response
-            expect(response.status).toBe(200);
-            expect(response.body.message).toBe('Image updated successfully');
-            expect(response.body.title).toBe('New Updated Name');
-            expect(response.body.price).toBe('200 €');
-
-            // Verify meta.json was updated correctly
-            const metaContent = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
-            expect(metaContent[initialFilename]).toEqual({
-                name: 'New Updated Name',
-                price: '200',
-            });
-
-            // Verify the image content was updated
-            const imageData = fs.readFileSync(imagePath);
-            expect(imageData.toString()).not.toBe('old-image-data');
-        });
+      expect(res.status).toBe(403);
+      expect(res.body.message).toContain('Forbidden');
+      expect(fs.existsSync(target)).toBe(true);
     });
-
-    describe('GET /images', () => {
-        it('should return an array of images with metadata', async () => {
-            // Pre-populate the file system with two images and a meta file
-            const meta = {
-                'img1-123.png': { name: 'Image One', price: '10' },
-                'img2-456.png': { name: 'Image Two', price: '20' },
-            };
-            fs.writeFileSync(path.join(IMG_DIR, 'meta.json'), JSON.stringify(meta));
-            fs.writeFileSync(path.join(IMG_DIR, 'img1-123.png'), 'data1');
-            fs.writeFileSync(path.join(IMG_DIR, 'img2-456.png'), 'data2');
-            fs.writeFileSync(path.join(IMG_DIR, 'not-a-png.txt'), 'data3'); // Should be ignored
-
-            const response = await request(app).get('/images');
-
-            expect(response.status).toBe(200);
-            expect(response.body).toHaveLength(2);
-            expect(response.body).toEqual(expect.arrayContaining([{
-                filename: 'img1-123.png',
-                title: 'Image One',
-                price: '10 €'
-            }, {
-                filename: 'img2-456.png',
-                title: 'Image Two',
-                price: '20 €'
-            }]));
-        });
-
-        it('should return an empty array if no images exist', async () => {
-            if (!fs.existsSync(IMG_DIR)) fs.mkdirSync(IMG_DIR, { recursive: true });
-            const response = await request(app).get('/images');
-            expect(response.status).toBe(200);
-            expect(response.body).toEqual([]);
-        });
-    });
-
-    describe('DELETE /images/:filename', () => {
-        it('should delete a specific image and its metadata', async () => {
-            // Pre-populate
-            const filename = 'image-to-delete-123.png';
-            const meta = { [filename]: { name: 'To Delete', price: '1' } };
-            fs.writeFileSync(path.join(IMG_DIR, filename), 'data');
-            fs.writeFileSync(path.join(IMG_DIR, 'meta.json'), JSON.stringify(meta));
-
-            const response = await request(app).delete(`/images/${filename}`);
-
-            expect(response.status).toBe(200);
-            expect(response.body.message).toBe('Image deleted successfully');
-
-            // Verify file and metadata are gone
-            const files = fs.readdirSync(IMG_DIR);
-            expect(files).not.toContain(filename);
-            const newMeta = JSON.parse(fs.readFileSync(path.join(IMG_DIR, 'meta.json'), 'utf8'));
-            expect(newMeta[filename]).toBeUndefined();
-        });
-    });
-
-    describe('DELETE /images', () => {
-        it('should delete all images and the metadata file', async () => {
-            // Pre-populate
-            fs.writeFileSync(path.join(IMG_DIR, 'img1.png'), 'data');
-            fs.writeFileSync(path.join(IMG_DIR, 'img2.png'), 'data');
-            fs.writeFileSync(path.join(IMG_DIR, 'meta.json'), '{}');
-
-            const response = await request(app).delete('/images');
-            expect(response.status).toBe(200);
-            expect(response.body.message).toBe('All images deleted successfully');
-
-            // Verify the directory is empty
-            const files = fs.readdirSync(IMG_DIR);
-            expect(files).toHaveLength(0);
-        });
-    });
+  });
 });

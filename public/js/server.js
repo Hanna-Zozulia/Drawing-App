@@ -26,21 +26,31 @@ app.post('/save', (req, res) => {
         ? JSON.parse(fs_1.default.readFileSync(metaFile, 'utf8'))
         : {};
     // --- UPDATE EXISTING FILE ---
+    // --- UPDATE EXISTING FILE ---
     if (filename) {
+        if (typeof filename !== 'string') {
+            return res.status(400).json({ message: 'Invalid filename type' });
+        }
+        // Security check to prevent path traversal
         const imagePath = path_1.default.join(imgDir, filename);
+        if (!path_1.default.resolve(imagePath).startsWith(path_1.default.resolve(imgDir)) || filename.includes('..')) {
+            return res.status(403).json({ message: 'Forbidden: Invalid filename provided.' });
+        }
         fs_1.default.writeFile(imagePath, base64Data, 'base64', (err) => {
             if (err) {
                 console.error(err);
                 return res.status(500).json({ message: 'Failed to update image' });
             }
-            const cleanPrice = price.replace(/\s?€/, '');
+            const cleanPrice = typeof price === 'string'
+                ? price.replace(/\s?€/, '')
+                : '';
             meta[filename] = { name, price: cleanPrice };
             fs_1.default.writeFileSync(metaFile, JSON.stringify(meta, null, 2), 'utf8');
             return res.json({
                 message: 'Image updated successfully',
                 filename,
                 title: name,
-                price: cleanPrice + " €"
+                price: cleanPrice + ' €'
             });
         });
         return;
@@ -53,13 +63,14 @@ app.post('/save', (req, res) => {
             console.error(err);
             return res.status(500).json({ message: 'Failed to save image' });
         }
-        meta[newName] = { name, price };
+        const cleanPrice = price.replace(/\s?€/, '');
+        meta[newName] = { name, price: cleanPrice };
         fs_1.default.writeFileSync(metaFile, JSON.stringify(meta, null, 2), 'utf8');
         return res.json({
             message: 'Image saved successfully',
             filename: newName,
             title: name,
-            price: price + " €"
+            price: cleanPrice + " €"
         });
     });
 });
@@ -84,6 +95,10 @@ app.get('/images', (req, res) => {
 app.delete('/images/:filename', (req, res) => {
     const { filename } = req.params;
     const imagePath = path_1.default.join(imgDir, filename);
+    if (!path_1.default.resolve(imagePath).startsWith(path_1.default.resolve(imgDir)) ||
+        filename.includes('..')) {
+        return res.status(403).json({ message: 'Forbidden: Invalid filename provided.' });
+    }
     const metaFile = path_1.default.join(imgDir, 'meta.json');
     try {
         fs_1.default.unlinkSync(imagePath);
@@ -116,6 +131,9 @@ app.delete('/images', (req, res) => {
         res.status(500).json({ message: 'Failed to delete images' });
     }
 });
-app.listen(port, () => {
-    console.log(`Server is running at http://localhost:${port}`);
-});
+if (process.env.NODE_ENV !== 'test') {
+    app.listen(port, () => {
+        console.log(`Server is running at http://localhost:${port}`);
+    });
+}
+exports.default = app;

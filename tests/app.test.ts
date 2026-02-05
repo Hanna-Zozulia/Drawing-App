@@ -1,3 +1,5 @@
+/** @jest-environment jsdom */
+
 // Since the app.ts file is a script that modifies the DOM directly and doesn't export functions,
 // we need to simulate a browser environment and load the script within it for testing.
 // This setup is more complex than testing modules with clear inputs and outputs.
